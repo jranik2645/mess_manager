@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "195079922161",
+    "firebase_url": "https://messmanager-95869-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "messmanager-95869",
+    "storage_bucket": "messmanager-95869.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:195079922161:android:9f91c232a447c63cb6e450",
+        "android_client_info": {
+          "package_name": "com.example.mess_manager"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyARQUuoVTAh73uW_taZBfuGSnyUy0cxeds"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
