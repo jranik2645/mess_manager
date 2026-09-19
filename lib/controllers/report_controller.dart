@@ -24,6 +24,24 @@ class ReportController extends GetxController {
   void onInit() {
     super.onInit();
     selectedMonthKey.value = AppFormatters.getMonthKey(DateTime.now());
+    _setupAutoReportGeneration();
+  }
+
+  void _setupAutoReportGeneration() {
+    final memberCtrl = Get.find<MemberController>();
+    final mealCtrl = Get.find<MealController>();
+    final depositCtrl = Get.find<DepositController>();
+    final costCtrl = Get.find<CostController>();
+    final extraBillCtrl = Get.find<ExtraBillController>();
+
+    // Re-generate report whenever any underlying data changes
+    ever(memberCtrl.members, (_) => generateReportForCurrentMonth());
+    ever(mealCtrl.monthMeals, (_) => generateReportForCurrentMonth());
+    ever(depositCtrl.deposits, (_) => generateReportForCurrentMonth());
+    ever(costCtrl.costs, (_) => generateReportForCurrentMonth());
+    ever(extraBillCtrl.extraBills, (_) => generateReportForCurrentMonth());
+    
+    // Initial generation
     generateReportForCurrentMonth();
   }
 

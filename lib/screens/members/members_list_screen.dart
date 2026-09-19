@@ -57,9 +57,12 @@ class MembersListScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('মেস সদস্যবৃন্দ (Members)'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.person_add_alt_1_rounded),
-            onPressed: () => _openAddMemberDialog(context),
+          Obx(() => authCtrl.isLoggedIn.value 
+            ? IconButton(
+                icon: const Icon(Icons.person_add_alt_1_rounded),
+                onPressed: () => _openAddMemberDialog(context),
+              )
+            : const SizedBox.shrink()
           ),
         ],
       ),
@@ -86,9 +89,7 @@ class MembersListScreen extends StatelessWidget {
                 return EmptyStateWidget(
                   icon: Icons.people_outline,
                   title: 'কোনো সদস্য পাওয়া যায়নি',
-                  message: 'সদস্য যোগ করতে নিচের বাটনে চাপুন।',
-                  actionText: 'নতুন সদস্য যোগ করুন',
-                  onAction: () => _openAddMemberDialog(context),
+                  message: 'সদস্য যোগ করতে ম্যানেজারকে অনুরোধ করুন।',
                 );
               }
 
@@ -103,15 +104,18 @@ class MembersListScreen extends StatelessWidget {
                       onTap: () => Get.to(() => MemberDetailScreen(member: member)),
                       leading: CircleAvatar(
                         backgroundColor: AppColors.primaryLight,
-                        child: Text(member.name[0], style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryDark)),
+                        child: Text(member.name.isNotEmpty ? member.name[0] : '?', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryDark)),
                       ),
                       title: Text(member.name, style: const TextStyle(fontWeight: FontWeight.bold)),
                       subtitle: Text('রুম: ${member.roomNumber} • মিল: ${AppFormatters.formatMeal(member.totalMeal)}'),
                       trailing: authCtrl.isLoggedIn.value
                           ? PopupMenuButton<String>(
                               onSelected: (val) {
-                                if (val == 'edit') _openEditMemberDialog(context, member);
-                                else if (val == 'delete') _confirmDelete(context, memberCtrl, member);
+                                if (val == 'edit') {
+                                  _openEditMemberDialog(context, member);
+                                } else if (val == 'delete') {
+                                  _confirmDelete(context, memberCtrl, member);
+                                }
                               },
                               itemBuilder: (ctx) => [
                                 const PopupMenuItem(value: 'edit', child: Text('সম্পাদনা')),
@@ -127,11 +131,14 @@ class MembersListScreen extends StatelessWidget {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        onPressed: () => _openAddMemberDialog(context),
-        child: const Icon(Icons.add),
+      floatingActionButton: Obx(() => authCtrl.isLoggedIn.value 
+        ? FloatingActionButton(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            onPressed: () => _openAddMemberDialog(context),
+            child: const Icon(Icons.add),
+          )
+        : const SizedBox.shrink()
       ),
     );
   }

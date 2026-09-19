@@ -48,6 +48,18 @@ class _ManagerAuthScreenState extends State<ManagerAuthScreen> {
     super.dispose();
   }
 
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _joiningDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked != null) {
+      setState(() => _joiningDate = picked);
+    }
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -56,20 +68,33 @@ class _ManagerAuthScreenState extends State<ManagerAuthScreen> {
 
     if (widget.isEditing) {
       success = await authCtrl.saveManagerProfile(
-        name: _nameCtrl.text,
-        phone: _phoneCtrl.text,
-        email: _emailCtrl.text,
+        name: _nameCtrl.text.trim(),
+        phone: _phoneCtrl.text.trim(),
+        email: _emailCtrl.text.trim(),
         joiningDate: _joiningDate,
       );
     } else if (_isLoginMode) {
-      success = await authCtrl.login(_emailCtrl.text, _passwordCtrl.text);
+      success = await authCtrl.login(_emailCtrl.text.trim(), _passwordCtrl.text.trim());
     } else {
+      // Registration: Note that we might need to update saveManagerProfile 
+      // inside registerManager if we want to save joining date there too.
+      // For now, it defaults to DateTime.now() in the controller.
       success = await authCtrl.registerManager(
-        name: _nameCtrl.text,
-        phone: _phoneCtrl.text,
-        email: _emailCtrl.text,
-        password: _passwordCtrl.text,
+        name: _nameCtrl.text.trim(),
+        phone: _phoneCtrl.text.trim(),
+        email: _emailCtrl.text.trim(),
+        password: _passwordCtrl.text.trim(),
       );
+      
+      // If registration is successful, we might want to update the joining date immediately
+      if (success && !widget.isEditing) {
+         await authCtrl.saveManagerProfile(
+          name: _nameCtrl.text.trim(),
+          phone: _phoneCtrl.text.trim(),
+          email: _emailCtrl.text.trim(),
+          joiningDate: _joiningDate,
+        );
+      }
     }
 
     if (success) {
@@ -109,44 +134,32 @@ class _ManagerAuthScreenState extends State<ManagerAuthScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Avatar & Role Card
+              // Avatar Icon
               Center(
-                child: Column(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: AppColors.primaryGradient,
-                      ),
-                      child: const CircleAvatar(
-                        radius: 40,
-                        backgroundColor: Colors.white,
-                        child: Icon(Icons.security, size: 40, color: AppColors.primary),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      _isLoginMode && !widget.isEditing
-                          ? 'স্বাগতম! লগইন করুন'
-                          : 'ম্যানেজার তথ্য',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                    ),
-                  ],
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.primary.withAlpha(20),
+                  ),
+                  child: const Icon(Icons.security, size: 50, color: AppColors.primary),
                 ),
               ),
+              const SizedBox(height: 10),
+              const Center(child: Text('ম্যানেজার তথ্য', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
               const SizedBox(height: 24),
 
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (!_isLoginMode || widget.isEditing) ...[
                         CustomTextField(
                           controller: _nameCtrl,
                           label: 'ম্যানেজারের নাম *',
-                          hint: 'আরিফুল ইসলাম',
+                          hint: ' djbabu',
                           prefixIcon: Icons.badge_outlined,
                           validator: (val) => AppValidators.required(val),
                         ),
@@ -154,17 +167,43 @@ class _ManagerAuthScreenState extends State<ManagerAuthScreen> {
                         CustomTextField(
                           controller: _phoneCtrl,
                           label: 'মোবাইল নম্বর *',
-                          hint: '01712345678',
+                          hint: ' 01510076424',
                           prefixIcon: Icons.phone_outlined,
                           keyboardType: TextInputType.phone,
                           validator: AppValidators.phone,
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        // Joining Date Field
+                        const Text('দায়িত্ব গ্রহণের তারিখ *', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 6),
+                        InkWell(
+                          onTap: _pickDate,
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF2A2A2A) : Colors.grey.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade300),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.calendar_today, size: 20, color: AppColors.primary),
+                                const SizedBox(width: 12),
+                                Text(AppFormatters.formatDate(_joiningDate), style: const TextStyle(fontSize: 15)),
+                                const Spacer(),
+                                const Icon(Icons.arrow_drop_down, color: Colors.grey),
+                              ],
+                            ),
+                          ),
                         ),
                         const SizedBox(height: 16),
                       ],
                       CustomTextField(
                         controller: _emailCtrl,
                         label: 'ইমেইল *',
-                        hint: 'manager@example.com',
+                        hint: ' djbabau@gmail.com',
                         prefixIcon: Icons.email_outlined,
                         keyboardType: TextInputType.emailAddress,
                         validator: AppValidators.email,
@@ -202,18 +241,6 @@ class _ManagerAuthScreenState extends State<ManagerAuthScreen> {
                       ? 'নতুন ম্যানেজার? এখানে ক্লিক করে রেজিস্ট্রেশন করুন'
                       : 'ইতিমধ্যেই ম্যানেজার আছেন? লগইন করুন'),
                 ),
-                if (_isLoginMode)
-                  TextButton(
-                    onPressed: () {
-                      if (_emailCtrl.text.isEmpty) {
-                        Get.snackbar('ত্রুটি', 'পাসওয়ার্ড রিসেট করতে আগে ইমেইল দিন');
-                        return;
-                      }
-                      // Implement forgot password logic in controller
-                      Get.snackbar('তথ্য', 'পাসওয়ার্ড রিসেট লিংক আপনার ইমেইলে পাঠানো হয়েছে (যদি ইমেইলটি নিবন্ধিত থাকে)');
-                    },
-                    child: const Text('পাসওয়ার্ড ভুলে গেছেন?'),
-                  ),
               ],
             ],
           ),

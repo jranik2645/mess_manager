@@ -13,9 +13,6 @@ class DepositController extends GetxController {
   final RxList<DepositModel> filteredDeposits = <DepositModel>[].obs;
   final RxString activeMonthKey = ''.obs;
 
-  // Filters
-  final RxString selectedMemberIdFilter = ''.obs;
-  final RxString selectedPaymentMethodFilter = ''.obs;
   final RxString searchQuery = ''.obs;
   final RxBool isLoading = false.obs;
 
@@ -23,55 +20,41 @@ class DepositController extends GetxController {
   void onInit() {
     super.onInit();
     activeMonthKey.value = AppFormatters.getMonthKey(DateTime.now());
+    
+    // Auto-update filter when data changes
+    ever(deposits, (_) => applyFilters());
+    ever(searchQuery, (_) => applyFilters());
+
     _bindDepositsForMonth(activeMonthKey.value);
   }
 
   void changeMonth(String monthKey) {
+    if (activeMonthKey.value == monthKey) return;
     activeMonthKey.value = monthKey;
     _bindDepositsForMonth(monthKey);
   }
 
   void _bindDepositsForMonth(String monthKey) {
     deposits.bindStream(_firestoreService.getDepositsStream(monthKey));
-    ever(deposits, (_) => applyFilters());
-    ever(selectedMemberIdFilter, (_) => applyFilters());
-    ever(selectedPaymentMethodFilter, (_) => applyFilters());
-    ever(searchQuery, (_) => applyFilters());
   }
 
   void applyFilters() {
+    // Sort locally to avoid Firestore Index requirement
     List<DepositModel> list = List.from(deposits);
-
-    if (selectedMemberIdFilter.value.isNotEmpty) {
-      list = list.where((d) => d.memberId == selectedMemberIdFilter.value).toList();
-    }
-
-    if (selectedPaymentMethodFilter.value.isNotEmpty) {
-      list = list.where((d) => d.paymentMethod == selectedPaymentMethodFilter.value).toList();
-    }
+    list.sort((a, b) => b.date.compareTo(a.date));
 
     if (searchQuery.value.trim().isNotEmpty) {
       final query = searchQuery.value.trim().toLowerCase();
-      list = list.where((d) {
-        final matchMember = d.memberName.toLowerCase().contains(query);
-        final matchNote = d.note.toLowerCase().contains(query);
-        final matchMethod = d.paymentMethod.toLowerCase().contains(query);
-        return matchMember || matchNote || matchMethod;
-      }).toList();
+      list = list.where((d) => 
+        d.memberName.toLowerCase().contains(query) || 
+        d.paymentMethod.toLowerCase().contains(query)
+      ).toList();
     }
 
     filteredDeposits.assignAll(list);
   }
 
-  double get totalDepositsInMonth {
-    return deposits.fold(0.0, (sum, d) => sum + d.amount);
-  }
-
-  double getMemberTotalDeposit(String memberId) {
-    return deposits
-        .where((d) => d.memberId == memberId)
-        .fold(0.0, (sum, d) => sum + d.amount);
-  }
+  double get totalDepositsInMonth => deposits.fold(0.0, (sum, d) => sum + d.amount);
 
   Future<bool> addDeposit({
     required String memberId,
@@ -93,18 +76,11 @@ class DepositController extends GetxController {
         paymentMethod: paymentMethod,
         note: note.trim(),
       );
-
       await _firestoreService.addDeposit(newDeposit);
-      Get.snackbar(
-        'জমা সম্পন্ন',
-        '${newDeposit.memberName}-এর ৳${newDeposit.amount.toStringAsFixed(0)} জমা হয়েছে',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.green.shade700,
-        colorText: Colors.white,
-      );
+      Get.snackbar('সফল', 'জমা সফলভাবে যোগ করা হয়েছে');
       return true;
     } catch (e) {
-      Get.snackbar('ত্রুটি', 'জমা যোগ করা যায়নি: $e', snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('ত্রুটি', 'জমা করা যায়নি');
       return false;
     } finally {
       isLoading.value = false;
@@ -115,38 +91,25 @@ class DepositController extends GetxController {
     try {
       isLoading.value = true;
       await _firestoreService.updateDeposit(deposit);
-      Get.snackbar(
-        'আপডেট সফল',
-        'জমার তথ্য আপডেট হয়েছে',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      Get.snackbar('সফল', 'জমা তথ্য আপডেট করা হয়েছে');
       return true;
     } catch (e) {
-      Get.snackbar('ত্রুটি', 'আপডেট ব্যর্থ: $e', snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('ত্রুটি', 'আপডেট করা যায়নি');
       return false;
     } finally {
       isLoading.value = false;
     }
   }
 
-  Future<bool> deleteDeposit(String depositId) async {
+  Future<void> deleteDeposit(String id) async {
     try {
       isLoading.value = true;
-      await _firestoreService.deleteDeposit(depositId, activeMonthKey.value);
-      Get.snackbar(
-        'মুছে ফেলা হয়েছে',
-        'জমার রেকর্ড মুছে ফেলা হয়েছে',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.orange.shade800,
-        colorText: Colors.white,
-      );
-      return true;
+      await _firestoreService.deleteDeposit(id, activeMonthKey.value);
+      Get.snackbar('সফল', 'জমা মুছে ফেলা হয়েছে');
     } catch (e) {
-      Get.snackbar('ত্রুটি', 'মুছে ফেলা যায়নি: $e', snackPosition: SnackPosition.BOTTOM);
-      return false;
+      Get.snackbar('ত্রুটি', 'মুছে ফেলা যায়নি');
     } finally {
       isLoading.value = false;
     }
   }
 }
-

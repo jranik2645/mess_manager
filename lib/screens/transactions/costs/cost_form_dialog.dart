@@ -84,7 +84,9 @@ class _CostFormDialogState extends State<CostFormDialog> {
         note: _noteCtrl.text.trim(),
       );
       final success = await costCtrl.updateCost(updated);
-      if (success) Navigator.pop(context);
+      if (success && mounted) {
+        Navigator.pop(context);
+      }
     } else {
       final success = await costCtrl.addCost(
         title: _titleCtrl.text.trim(),
@@ -94,7 +96,9 @@ class _CostFormDialogState extends State<CostFormDialog> {
         addedBy: _addedByCtrl.text.trim(),
         note: _noteCtrl.text.trim(),
       );
-      if (success) Navigator.pop(context);
+      if (success && mounted) {
+        Navigator.pop(context);
+      }
     }
   }
 

@@ -4,11 +4,10 @@ import '../../utils/app_colors.dart';
 
 class AppTheme {
   static ThemeData get lightTheme {
-    final baseTextTheme = GoogleFonts.hindSiliguriTextTheme();
+    final baseTheme = ThemeData.light(useMaterial3: true);
+    final textTheme = GoogleFonts.hindSiliguriTextTheme(baseTheme.textTheme);
 
-    return ThemeData(
-      useMaterial3: true,
-      brightness: Brightness.light,
+    return baseTheme.copyWith(
       primaryColor: AppColors.primary,
       scaffoldBackgroundColor: AppColors.backgroundLight,
       colorScheme: const ColorScheme.light(
@@ -42,10 +41,7 @@ class AppTheme {
           side: const BorderSide(color: AppColors.borderLight, width: 0.8),
         ),
       ),
-      textTheme: baseTextTheme.apply(
-        bodyColor: AppColors.textPrimaryLight,
-        displayColor: AppColors.textPrimaryLight,
-      ),
+      textTheme: textTheme,
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
@@ -103,11 +99,10 @@ class AppTheme {
   }
 
   static ThemeData get darkTheme {
-    final baseTextTheme = GoogleFonts.hindSiliguriTextTheme(ThemeData.dark().textTheme);
+    final baseTheme = ThemeData.dark(useMaterial3: true);
+    final textTheme = GoogleFonts.hindSiliguriTextTheme(baseTheme.textTheme);
 
-    return ThemeData(
-      useMaterial3: true,
-      brightness: Brightness.dark,
+    return baseTheme.copyWith(
       primaryColor: AppColors.primary,
       scaffoldBackgroundColor: AppColors.backgroundDark,
       colorScheme: const ColorScheme.dark(
@@ -140,10 +135,7 @@ class AppTheme {
           side: const BorderSide(color: AppColors.borderDark, width: 1),
         ),
       ),
-      textTheme: baseTextTheme.apply(
-        bodyColor: AppColors.textPrimaryDark,
-        displayColor: AppColors.textPrimaryDark,
-      ),
+      textTheme: textTheme,
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF64B5F6),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../utils/app_colors.dart';
 
@@ -61,10 +62,12 @@ class CustomButton extends StatelessWidget {
                     ],
                     Text(
                       text,
-                      style: TextStyle(
-                        fontSize: 15,
+                      style: GoogleFonts.hindSiliguri(
+                        fontSize: 16,
                         fontWeight: FontWeight.w600,
                         color: effectiveColor,
+                        letterSpacing: 0.5,
+                        height: 1.5,
                       ),
                     ),
                   ],
@@ -105,10 +108,12 @@ class CustomButton extends StatelessWidget {
                   ],
                   Text(
                     text,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
+                    style: GoogleFonts.hindSiliguri(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
                       color: Colors.white,
+                      letterSpacing: 0.5,
+                      height: 1.5,
                     ),
                   ),
                 ],

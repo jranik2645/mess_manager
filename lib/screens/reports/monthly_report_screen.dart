@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../../controllers/auth_manager_controller.dart';
 import '../../controllers/report_controller.dart';
 import '../../utils/app_colors.dart';
 import '../../utils/formatters.dart';
@@ -26,136 +28,61 @@ class MonthlyReportScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final reportCtrl = Get.find<ReportController>();
+    final authCtrl = Get.find<AuthManagerController>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('মাসিক চূড়ান্ত রিপোর্ট (Final Report)'),
+        title: Text('মাসিক চূড়ান্ত রিপোর্ট', style: GoogleFonts.hindSiliguri(fontWeight: FontWeight.bold)),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.calendar_month),
-            tooltip: 'মাস পরিবর্তন',
-            onPressed: () => _selectMonth(context, reportCtrl),
-          ),
-          IconButton(
-            icon: const Icon(Icons.picture_as_pdf),
-            tooltip: 'PDF দেখুন ও ডাউনলোড করুন',
-            onPressed: () {
-              final r = reportCtrl.currentReport.value;
-              if (r != null) {
-                Get.to(() => PdfPreviewScreen(report: r));
-              }
-            },
-          ),
+          IconButton(icon: const Icon(Icons.calendar_month), onPressed: () => _selectMonth(context, reportCtrl)),
+          IconButton(icon: const Icon(Icons.picture_as_pdf), onPressed: () {
+            final r = reportCtrl.currentReport.value;
+            if (r != null) Get.to(() => PdfPreviewScreen(report: r));
+          }),
         ],
       ),
       body: Obx(() {
         final report = reportCtrl.currentReport.value;
+        final manager = authCtrl.currentManager.value;
 
         if (report == null || report.memberReports.isEmpty) {
-          return EmptyStateWidget(
-            icon: Icons.assignment_outlined,
-            title: 'রিপোর্টের জন্য ডেটা নেই',
-            message: 'মেম্বার ও মিলের হিসাব যোগ করার পর স্বয়ংক্রিয়ভাবে রিপোর্ট তৈরি হবে।',
-            actionText: 'রিফ্রেশ করুন',
-            onAction: () => reportCtrl.generateReportForCurrentMonth(),
-          );
+          return EmptyStateWidget(icon: Icons.assignment_outlined, title: 'ডেটা পাওয়া যায়নি', message: 'হিসাব যোগ করার পর এখানে রিপোর্ট তৈরি হবে।');
         }
 
-        final isNegativeBalance = report.remainingBalance < 0;
+        // To fix duplicate entries in report, we can filter the list here just in case
+        final uniqueMemberReports = <String, dynamic>{};
+        for (var item in report.memberReports) {
+          uniqueMemberReports[item.memberId] = item;
+        }
+        final finalMemberReports = uniqueMemberReports.values.toList();
+
+        final bool isOwedByManager = report.remainingBalance < 0;
+        final Color labelColor = isDark ? Colors.white : Colors.black87;
 
         return SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header Card
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: AppColors.primaryGradient,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'MESS MANAGER FINAL REPORT',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        InkWell(
-                          onTap: () => _selectMonth(context, reportCtrl),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withAlpha(40),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              children: [
-                                Text(
-                                  AppFormatters.displayMonthKey(report.monthKey),
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                                ),
-                                const Icon(Icons.arrow_drop_down, color: Colors.white, size: 16),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'ম্যানেজার: ${report.managerName.isNotEmpty ? report.managerName : "মেস ম্যানেজার"}',
-                      style: TextStyle(color: Colors.white.withAlpha(220), fontSize: 13),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Summary Card
-              const Text(
-                'মেস সামগ্রিক সারসংক্ষেপ (Mess Summary)',
-                style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-
+              // 1. Header Card
               Card(
+                color: AppColors.primary,
+                elevation: 4,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _summaryRow('মোট সদস্য (Total Members)', '${report.totalMembers} জন'),
-                      _summaryRow('দিনের মিল (Day Meals)', AppFormatters.formatMeal(report.totalDayMeals)),
-                      _summaryRow('রাতের মিল (Night Meals)', AppFormatters.formatMeal(report.totalNightMeals)),
-                      _summaryRow('সর্বমোট মিল (Total Meals)', AppFormatters.formatMeal(report.totalMeals), isBold: true),
-                      const Divider(height: 14),
-                      _summaryRow('মোট ডিপোজিট/জমা (Deposit)', AppFormatters.formatCurrency(report.totalDeposit), color: Colors.green),
-                      _summaryRow('নিয়মিত বাজার খরচ (Regular Cost)', AppFormatters.formatCurrency(report.totalRegularCost), color: Colors.deepOrange),
-                      _summaryRow('অতিরিক্ত বিল (Extra Bill)', AppFormatters.formatCurrency(report.totalExtraBill), color: Colors.indigo),
-                      _summaryRow('মোট মেস ব্যয় (Total Cost)', AppFormatters.formatCurrency(report.totalCost), isBold: true, color: Colors.red),
-                      const Divider(height: 14),
-                      _summaryRow(
-                        'চূড়ান্ত মিল রেট (Meal Rate)',
-                        '${AppFormatters.formatCurrency(report.mealRate)} / মিল',
-                        isBold: true,
-                        isHighlight: true,
-                      ),
-                      _summaryRow(
-                        'হাতে অবশিষ্ট ক্যাশ ব্যালেন্স',
-                        AppFormatters.formatCurrency(report.remainingBalance),
-                        isBold: true,
-                        color: isNegativeBalance ? Colors.red : Colors.green,
+                      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(report.managerName, style: GoogleFonts.hindSiliguri(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                        Text(manager != null ? 'দায়িত্ব: ${AppFormatters.formatDate(manager.joiningDate)}' : '', style: GoogleFonts.hindSiliguri(color: Colors.white70, fontSize: 12)),
+                      ]),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(10)),
+                        child: Text(AppFormatters.displayMonthKey(report.monthKey), style: GoogleFonts.hindSiliguri(color: Colors.white, fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),
@@ -163,153 +90,79 @@ class MonthlyReportScreen extends StatelessWidget {
               ),
               const SizedBox(height: 20),
 
-              // Member-wise Breakdown Table
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'সদস্যভিত্তিক হিসাব বিবরণী',
-                    style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    'মোট: ${report.memberReports.length} জন',
-                    style: TextStyle(fontSize: 12.5, color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
-                  ),
-                ],
+              // 2. Status Box (Manager Owed / Hand Cash)
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isOwedByManager ? (isDark ? Colors.red.withAlpha(40) : Colors.red.shade50) : (isDark ? Colors.green.withAlpha(40) : Colors.green.shade50),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: isOwedByManager ? Colors.red.shade400 : Colors.green.shade400, width: 1.5),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          isOwedByManager ? 'ম্যানেজার পাবেন (নিজ খরচ):' : 'ম্যানেজারের কাছে নগদ আছে:',
+                          style: GoogleFonts.hindSiliguri(fontWeight: FontWeight.bold, fontSize: 14, color: isOwedByManager ? (isDark ? Colors.red.shade200 : Colors.red.shade900) : (isDark ? Colors.green.shade200 : Colors.green.shade900)),
+                        ),
+                        Text(
+                          AppFormatters.formatCurrency(report.remainingBalance.abs()),
+                          style: GoogleFonts.hindSiliguri(fontSize: 18, fontWeight: FontWeight.bold, color: isOwedByManager ? (isDark ? Colors.red.shade300 : Colors.red.shade800) : (isDark ? Colors.green.shade300 : Colors.green.shade800)),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 20),
 
-              // Responsive Horizontal Scrollable Table
+              // 3. Member Table (Separated Owed/Credit Columns)
+              Text('সদস্যভিত্তিক চূড়ান্ত হিসাব বিবরণী', style: GoogleFonts.hindSiliguri(fontWeight: FontWeight.bold, fontSize: 17, color: labelColor)),
+              const SizedBox(height: 10),
               Card(
+                elevation: 2,
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: DataTable(
-                    headingRowColor: WidgetStateProperty.all(
-                      isDark ? const Color(0xFF262626) : const Color(0xFFEBF3FA),
-                    ),
-                    columnSpacing: 18,
-                    columns: const [
-                      DataColumn(label: Text('সদস্য (Member)', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('দিন (Day)', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('রাত (Night)', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('মোট মিল', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('জমা (Deposit)', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('মিল খরচ', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('এক্সট্রা বিল', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('ব্যালেন্স (Balance)', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('স্ট্যাটাস', style: TextStyle(fontWeight: FontWeight.bold))),
+                    columnSpacing: 15,
+                    headingRowColor: WidgetStateProperty.all(isDark ? Colors.white10 : Colors.grey.shade100),
+                    columns: [
+                      DataColumn(label: Text('সদস্য', style: GoogleFonts.hindSiliguri(fontWeight: FontWeight.bold))),
+                      DataColumn(label: Text('মিল', style: GoogleFonts.hindSiliguri(fontWeight: FontWeight.bold))),
+                      DataColumn(label: Text('জমা', style: GoogleFonts.hindSiliguri(fontWeight: FontWeight.bold))),
+                      DataColumn(label: Text('মিল খরচ', style: GoogleFonts.hindSiliguri(fontWeight: FontWeight.bold))),
+                      DataColumn(label: Text('এক্সট্রা', style: GoogleFonts.hindSiliguri(fontWeight: FontWeight.bold))),
+                      DataColumn(label: Text('ফেরত পাবে', style: GoogleFonts.hindSiliguri(fontWeight: FontWeight.bold, color: Colors.green.shade700))),
+                      DataColumn(label: Text('বকেয়া (দিবে)', style: GoogleFonts.hindSiliguri(fontWeight: FontWeight.bold, color: Colors.red.shade700))),
                     ],
-                    rows: report.memberReports.map((m) {
-                      final isDue = m.balance < -0.5;
-                      final isPositive = m.balance > 0.5;
+                    rows: finalMemberReports.map((m) {
+                      final bool isDue = m.balance < -0.5;
+                      final double pabeAmount = !isDue ? m.balance : 0.0;
+                      final double dibeAmount = isDue ? m.balance.abs() : 0.0;
 
-                      return DataRow(
-                        cells: [
-                          DataCell(
-                            Text(
-                              m.memberName,
-                              style: const TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                          DataCell(Text(AppFormatters.formatMeal(m.dayMeal))),
-                          DataCell(Text(AppFormatters.formatMeal(m.nightMeal))),
-                          DataCell(
-                            Text(
-                              AppFormatters.formatMeal(m.totalMeal),
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          DataCell(
-                            Text(
-                              m.deposit.toStringAsFixed(0),
-                              style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                          DataCell(Text(m.mealCost.toStringAsFixed(1))),
-                          DataCell(Text(m.extraBill.toStringAsFixed(1))),
-                          DataCell(
-                            Text(
-                              m.balance.toStringAsFixed(1),
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: isDue ? Colors.red : (isPositive ? Colors.green : Colors.grey),
-                              ),
-                            ),
-                          ),
-                          DataCell(
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: isDue
-                                    ? Colors.red.withAlpha(20)
-                                    : (isPositive ? Colors.green.withAlpha(20) : Colors.grey.withAlpha(20)),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                isDue ? 'বকেয়া' : (isPositive ? 'ফেরত পাবে' : 'সমান'),
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: isDue ? Colors.red : (isPositive ? Colors.green : Colors.grey),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      );
+                      return DataRow(cells: [
+                        DataCell(Text(m.memberName, style: GoogleFonts.hindSiliguri(fontWeight: FontWeight.bold, fontSize: 13))),
+                        DataCell(Text(AppFormatters.formatMeal(m.totalMeal))),
+                        DataCell(Text(m.deposit.toStringAsFixed(0))),
+                        DataCell(Text(m.mealCost.toStringAsFixed(0))),
+                        DataCell(Text(m.extraBill.toStringAsFixed(0))),
+                        DataCell(Text(
+                          pabeAmount > 0 ? AppFormatters.formatCurrency(pabeAmount) : '-',
+                          style: GoogleFonts.hindSiliguri(color: Colors.green, fontWeight: FontWeight.bold),
+                        )),
+                        DataCell(Text(
+                          dibeAmount > 0 ? AppFormatters.formatCurrency(dibeAmount) : '-',
+                          style: GoogleFonts.hindSiliguri(color: Colors.red, fontWeight: FontWeight.bold),
+                        )),
+                      ]);
                     }).toList(),
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
-
-              // Export & Actions Buttons
-              Row(
-                children: [
-                  Expanded(
-                    child: CustomButton(
-                      text: 'PDF ভিউ ও ডাউনলোড',
-                      icon: Icons.picture_as_pdf,
-                      onPressed: () {
-                        Get.to(() => PdfPreviewScreen(report: report));
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: CustomButton(
-                      text: 'প্রিন্ট রিপোর্ট',
-                      icon: Icons.print,
-                      isOutlined: true,
-                      onPressed: () => reportCtrl.printReport(),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: CustomButton(
-                      text: 'শেয়ার করুন',
-                      icon: Icons.share,
-                      isOutlined: true,
-                      onPressed: () => reportCtrl.shareReport(),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Obx(
-                      () => CustomButton(
-                        text: 'ক্লাউডে সেভ করুন',
-                        icon: Icons.cloud_upload_outlined,
-                        isLoading: reportCtrl.isGenerating.value,
-                        onPressed: () => reportCtrl.saveReportToCloud(),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+              const SizedBox(height: 25),
+              CustomButton(text: 'পুরো রিপোর্ট শেয়ার করুন', icon: Icons.share, onPressed: () => reportCtrl.shareReport()),
               const SizedBox(height: 30),
             ],
           ),
@@ -317,32 +170,4 @@ class MonthlyReportScreen extends StatelessWidget {
       }),
     );
   }
-
-  Widget _summaryRow(String label, String value, {bool isBold = false, bool isHighlight = false, Color? color}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      color: isHighlight ? AppColors.primaryLight.withAlpha(50) : Colors.transparent,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: isBold ? 14 : 13,
-              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: isBold ? 15 : 13.5,
-              fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
-              color: color,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
-

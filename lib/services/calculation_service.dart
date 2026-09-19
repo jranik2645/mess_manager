@@ -6,111 +6,26 @@ import '../models/extra_bill_model.dart';
 import '../models/report_model.dart';
 
 class CalculationService {
-  /// Calculate Total Day Meals from a list of meals
-  static double calculateTotalDayMeals(List<MealModel> meals) {
-    return meals.fold(0.0, (sum, m) => sum + m.dayMeal);
-  }
+  static double calculateTotalDayMeals(List<MealModel> meals) => meals.fold(0.0, (sum, m) => sum + m.dayMeal);
+  static double calculateTotalNightMeals(List<MealModel> meals) => meals.fold(0.0, (sum, m) => sum + m.nightMeal);
+  static double calculateTotalMeals(List<MealModel> meals) => meals.fold(0.0, (sum, m) => sum + (m.dayMeal + m.nightMeal));
+  static double calculateTotalDeposits(List<DepositModel> deposits) => deposits.fold(0.0, (sum, d) => sum + d.amount);
+  static double calculateTotalRegularCosts(List<CostModel> costs) => costs.fold(0.0, (sum, c) => sum + c.amount);
+  static double calculateTotalExtraBills(List<ExtraBillModel> extraBills) => extraBills.fold(0.0, (sum, b) => sum + b.amount);
 
-  /// Calculate Total Night Meals from a list of meals
-  static double calculateTotalNightMeals(List<MealModel> meals) {
-    return meals.fold(0.0, (sum, m) => sum + m.nightMeal);
-  }
-
-  /// Calculate Total Meals (Day + Night)
-  static double calculateTotalMeals(List<MealModel> meals) {
-    return meals.fold(0.0, (sum, m) => sum + m.totalMeal);
-  }
-
-  /// Calculate Total Deposits
-  static double calculateTotalDeposits(List<DepositModel> deposits) {
-    return deposits.fold(0.0, (sum, d) => sum + d.amount);
-  }
-
-  /// Calculate Total Regular Costs (Bazaar)
-  static double calculateTotalRegularCosts(List<CostModel> costs) {
-    return costs.fold(0.0, (sum, c) => sum + c.amount);
-  }
-
-  /// Calculate Total Extra Bills
-  static double calculateTotalExtraBills(List<ExtraBillModel> extraBills) {
-    return extraBills.fold(0.0, (sum, b) => sum + b.amount);
-  }
-
-  /// Total Expenditure = Regular Cost + Extra Bills
-  static double calculateTotalExpenditure(double regularCost, double extraBill) {
-    return regularCost + extraBill;
-  }
-
-  /// Calculate Meal Rate = Regular Bazaar Cost / Total Meals
-  /// Returns 0.0 if totalMeals <= 0 to avoid division by zero
   static double calculateMealRate(double regularCost, double totalMeals) {
     if (totalMeals <= 0) return 0.0;
     return regularCost / totalMeals;
   }
 
-  /// Calculate Member Day Meals
-  static double calculateMemberDayMeals(String memberId, List<MealModel> meals) {
-    return meals
-        .where((m) => m.memberId == memberId)
-        .fold(0.0, (sum, m) => sum + m.dayMeal);
-  }
-
-  /// Calculate Member Night Meals
-  static double calculateMemberNightMeals(String memberId, List<MealModel> meals) {
-    return meals
-        .where((m) => m.memberId == memberId)
-        .fold(0.0, (sum, m) => sum + m.nightMeal);
-  }
-
-  /// Calculate Member Total Meals
-  static double calculateMemberTotalMeals(String memberId, List<MealModel> meals) {
-    return meals
-        .where((m) => m.memberId == memberId)
-        .fold(0.0, (sum, m) => sum + m.totalMeal);
-  }
-
-  /// Calculate Member Total Deposit
-  static double calculateMemberDeposit(String memberId, List<DepositModel> deposits) {
-    return deposits
-        .where((d) => d.memberId == memberId)
-        .fold(0.0, (sum, d) => sum + d.amount);
-  }
-
-  /// Calculate Member Extra Bill Share
   static double calculateMemberExtraBillShare(String memberId, List<ExtraBillModel> extraBills) {
     double totalShare = 0.0;
     for (final bill in extraBills) {
-      if (bill.memberShares.containsKey(memberId)) {
-        totalShare += (bill.memberShares[memberId] ?? 0.0);
-      }
+      totalShare += (bill.memberShares[memberId] ?? 0.0);
     }
     return totalShare;
   }
 
-  /// Calculate Member Balance = Deposit - Meal Cost - Extra Bill
-  /// Positive: returnable / credit
-  /// Negative: due / payable
-  static double calculateMemberBalance({
-    required double deposit,
-    required double mealCost,
-    required double extraBillShare,
-  }) {
-    return deposit - (mealCost + extraBillShare);
-  }
-
-  /// Mess Remaining Cash in Hand = Total Deposit - (Total Regular Cost + Total Extra Bill)
-  static double calculateRemainingBalance({
-    required double totalDeposit,
-    required double totalRegularCost,
-    required double totalExtraBill,
-  }) {
-    return totalDeposit - (totalRegularCost + totalExtraBill);
-  }
-
-  /// Distribute an Extra Bill among members
-  /// distributionType: 'equal' (all members split equally),
-  /// 'selected' (specified subset split equally),
-  /// 'manual' (custom map)
   static Map<String, double> distributeExtraBill({
     required double totalAmount,
     required String distributionType,
@@ -119,32 +34,23 @@ class CalculationService {
     Map<String, double>? manualAmounts,
   }) {
     final Map<String, double> shares = {};
-
     if (totalAmount <= 0) return shares;
 
     if (distributionType == 'equal') {
       if (activeMembers.isEmpty) return shares;
-      final perMember = totalAmount / activeMembers.length;
-      for (final m in activeMembers) {
-        shares[m.id] = double.parse(perMember.toStringAsFixed(2));
-      }
+      final perMember = double.parse((totalAmount / activeMembers.length).toStringAsFixed(2));
+      for (final m in activeMembers) shares[m.id] = perMember;
     } else if (distributionType == 'selected') {
-      final validSelected = (selectedMemberIds ?? []).where((id) => id.isNotEmpty).toList();
-      if (validSelected.isEmpty) return shares;
-      final perMember = totalAmount / validSelected.length;
-      for (final id in validSelected) {
-        shares[id] = double.parse(perMember.toStringAsFixed(2));
-      }
-    } else if (distributionType == 'manual') {
-      if (manualAmounts != null) {
-        shares.addAll(manualAmounts);
-      }
+      final validIds = (selectedMemberIds ?? []).where((id) => id.isNotEmpty).toList();
+      if (validIds.isEmpty) return shares;
+      final perMember = double.parse((totalAmount / validIds.length).toStringAsFixed(2));
+      for (final id in validIds) shares[id] = perMember;
+    } else if (distributionType == 'manual' && manualAmounts != null) {
+      shares.addAll(manualAmounts);
     }
-
     return shares;
   }
 
-  /// Generate complete monthly audit and report
   static MonthlyReportModel generateMonthlyReport({
     required String monthKey,
     required String managerName,
@@ -154,68 +60,61 @@ class CalculationService {
     required List<CostModel> costs,
     required List<ExtraBillModel> extraBills,
   }) {
-    final totalDayMeals = calculateTotalDayMeals(meals);
-    final totalNightMeals = calculateTotalNightMeals(meals);
-    final totalMeals = totalDayMeals + totalNightMeals;
+    final tDay = calculateTotalDayMeals(meals);
+    final tNight = calculateTotalNightMeals(meals);
+    final tMeals = tDay + tNight;
+    final tDeposit = calculateTotalDeposits(deposits);
+    final tRegularCost = calculateTotalRegularCosts(costs);
+    final tExtraBill = calculateTotalExtraBills(extraBills);
+    final tTotalCost = tRegularCost + tExtraBill;
+    final mRate = calculateMealRate(tRegularCost, tMeals);
 
-    final totalDeposit = calculateTotalDeposits(deposits);
-    final totalRegularCost = calculateTotalRegularCosts(costs);
-    final totalExtraBill = calculateTotalExtraBills(extraBills);
-    final totalCost = totalRegularCost + totalExtraBill;
+    double totalDues = 0.0;
+    double totalSurplus = 0.0;
 
-    final mealRate = calculateMealRate(totalRegularCost, totalMeals);
-    final remainingBalance = totalDeposit - totalCost;
+    final List<MemberReportItem> memberReports = members.map((member) {
+      final mDay = meals.where((m) => m.memberId == member.id).fold(0.0, (s, m) => s + m.dayMeal);
+      final mNight = meals.where((m) => m.memberId == member.id).fold(0.0, (s, m) => s + m.nightMeal);
+      final mTotalMeal = mDay + mNight;
+      final mDep = deposits.where((d) => d.memberId == member.id).fold(0.0, (s, d) => s + d.amount);
+      final mMealCost = mTotalMeal * mRate;
+      final mExtra = calculateMemberExtraBillShare(member.id, extraBills);
+      final mCost = mMealCost + mExtra;
+      final balance = mDep - mCost;
 
-    final List<MemberReportItem> memberReports = [];
+      if (balance < 0) totalDues += balance.abs();
+      else totalSurplus += balance;
 
-    for (final member in members) {
-      final memberDayMeal = calculateMemberDayMeals(member.id, meals);
-      final memberNightMeal = calculateMemberNightMeals(member.id, meals);
-      final memberTotalMeal = memberDayMeal + memberNightMeal;
-
-      final memberDeposit = calculateMemberDeposit(member.id, deposits);
-      final memberMealCost = memberTotalMeal * mealRate;
-      final memberExtraBill = calculateMemberExtraBillShare(member.id, extraBills);
-      final memberTotalCost = memberMealCost + memberExtraBill;
-      final memberBalance = memberDeposit - memberTotalCost;
-
-      // Update runtime cached fields on member
-      member.totalMeal = memberTotalMeal;
-      member.totalDeposit = memberDeposit;
-      member.totalCost = memberTotalCost;
-      member.balance = memberBalance;
-
-      memberReports.add(
-        MemberReportItem(
-          memberId: member.id,
-          memberName: member.name,
-          dayMeal: memberDayMeal,
-          nightMeal: memberNightMeal,
-          totalMeal: memberTotalMeal,
-          deposit: memberDeposit,
-          mealCost: memberMealCost,
-          extraBill: memberExtraBill,
-          totalCost: memberTotalCost,
-          balance: memberBalance,
-        ),
+      return MemberReportItem(
+        memberId: member.id,
+        memberName: member.name,
+        dayMeal: mDay,
+        nightMeal: mNight,
+        totalMeal: mTotalMeal,
+        deposit: mDep,
+        mealCost: mMealCost,
+        extraBill: mExtra,
+        totalCost: mCost,
+        balance: balance,
       );
-    }
+    }).toList();
 
     return MonthlyReportModel(
       monthKey: monthKey,
       managerName: managerName,
       totalMembers: members.length,
-      totalDayMeals: totalDayMeals,
-      totalNightMeals: totalNightMeals,
-      totalMeals: totalMeals,
-      totalDeposit: totalDeposit,
-      totalRegularCost: totalRegularCost,
-      totalExtraBill: totalExtraBill,
-      totalCost: totalCost,
-      mealRate: mealRate,
-      remainingBalance: remainingBalance,
+      totalDayMeals: tDay,
+      totalNightMeals: tNight,
+      totalMeals: tMeals,
+      totalDeposit: tDeposit,
+      totalRegularCost: tRegularCost,
+      totalExtraBill: tExtraBill,
+      totalCost: tTotalCost,
+      mealRate: mRate,
+      remainingBalance: tDeposit - tTotalCost,
+      totalDuesFromMembers: totalDues,
+      totalSurplusOfMembers: totalSurplus,
       memberReports: memberReports,
     );
   }
 }
-

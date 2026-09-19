@@ -56,6 +56,7 @@ class MemberController extends GetxController {
   Future<bool> addMember({
     required String name,
     required String phone,
+    String? id, // Optional ID to prevent duplicates
     String email = '',
     String roomNumber = '',
     DateTime? joiningDate,
@@ -64,7 +65,7 @@ class MemberController extends GetxController {
     try {
       isLoading.value = true;
       final newMember = MemberModel(
-        id: 'mem_${_uuid.v4().substring(0, 8)}',
+        id: id ?? 'mem_${_uuid.v4().substring(0, 8)}',
         name: name.trim(),
         phone: phone.trim(),
         email: email.trim(),

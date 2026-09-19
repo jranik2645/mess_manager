@@ -87,7 +87,9 @@ class _DepositFormDialogState extends State<DepositFormDialog> {
         note: _noteCtrl.text.trim(),
       );
       final success = await depositCtrl.updateDeposit(updated);
-      if (success) Navigator.pop(context);
+      if (success && mounted) {
+        Navigator.pop(context);
+      }
     } else {
       final success = await depositCtrl.addDeposit(
         memberId: _selectedMemberId!,
@@ -97,7 +99,9 @@ class _DepositFormDialogState extends State<DepositFormDialog> {
         paymentMethod: _selectedMethod,
         note: _noteCtrl.text.trim(),
       );
-      if (success) Navigator.pop(context);
+      if (success && mounted) {
+        Navigator.pop(context);
+      }
     }
   }
 

@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 
 import '../models/manager_model.dart';
 import '../services/firestore_service.dart';
+import 'member_controller.dart';
 
 class AuthManagerController extends GetxController {
   final FirestoreService _firestoreService = FirestoreService();
@@ -12,6 +13,8 @@ class AuthManagerController extends GetxController {
   final Rx<ManagerModel?> currentManager = Rx<ManagerModel?>(null);
   final RxBool isLoading = false.obs;
   final RxBool isLoggedIn = false.obs;
+
+  bool _isSyncingManager = false;
 
   @override
   void onInit() {
@@ -30,6 +33,53 @@ class AuthManagerController extends GetxController {
   void syncLoginState(ManagerModel? manager) {
     currentManager.value = manager;
     isLoggedIn.value = manager != null || _auth.currentUser != null;
+    
+    if (isLoggedIn.value && manager != null) {
+      _ensureManagerIsMember(manager);
+    }
+  }
+
+  /// Improved logic to prevent duplicate manager entries in member list
+  Future<void> _ensureManagerIsMember(ManagerModel manager) async {
+    if (_isSyncingManager) return;
+    _isSyncingManager = true;
+
+    try {
+      final memberCtrl = Get.find<MemberController>();
+      
+      // Wait a bit to ensure member list is loaded from stream
+      if (memberCtrl.members.isEmpty) {
+        await Future.delayed(const Duration(seconds: 2));
+      }
+
+      final String managerMemberId = 'mgr_member_${manager.id}';
+      
+      // Strict check by ID or Phone to avoid any duplicates
+      final existing = memberCtrl.members.firstWhereOrNull(
+        (m) => m.id == managerMemberId || m.phone == manager.phone
+      );
+      
+      if (existing == null) {
+        await memberCtrl.addMember(
+          id: managerMemberId,
+          name: '${manager.name} (ম্যানেজার)',
+          phone: manager.phone,
+          email: manager.email,
+          roomNumber: 'M-01',
+        );
+        debugPrint('Manager successfully linked as a member.');
+      } else {
+        // If name mismatch, update it
+        if (existing.name != '${manager.name} (ম্যানেজার)') {
+          final updated = existing.copyWith(name: '${manager.name} (ম্যানেজার)');
+          await memberCtrl.updateMember(updated);
+        }
+      }
+    } catch (e) {
+      debugPrint('Manager sync error: $e');
+    } finally {
+      _isSyncingManager = false;
+    }
   }
 
   void _bindManagerStream() {
@@ -38,7 +88,6 @@ class AuthManagerController extends GetxController {
     });
   }
 
-  /// Login with Email and Password
   Future<bool> login(String email, String password) async {
     try {
       isLoading.value = true;
@@ -46,42 +95,15 @@ class AuthManagerController extends GetxController {
         email: email.trim(),
         password: password.trim(),
       );
-
-      if (credential.user != null) {
-        isLoggedIn.value = true;
-        Get.snackbar(
-          'সফল লগইন',
-          'ম্যানেজার হিসেবে লগইন করা হয়েছে',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.green.shade700,
-          colorText: Colors.white,
-        );
-        return true;
-      }
-      return false;
+      return credential.user != null;
     } on FirebaseAuthException catch (e) {
-      String errorMessage = 'লগইন ব্যর্থ হয়েছে';
-      if (e.code == 'user-not-found') errorMessage = 'এই ইমেইলে কোনো একাউন্ট নেই';
-      else if (e.code == 'wrong-password') errorMessage = 'ভুল পাসওয়ার্ড দিয়েছেন';
-      else if (e.code == 'invalid-email') errorMessage = 'ভুল ইমেইল ফরম্যাট';
-
-      Get.snackbar('ত্রুটি', errorMessage,
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.red.shade700,
-          colorText: Colors.white);
-      return false;
-    } catch (e) {
-      Get.snackbar('ত্রুটি', 'একটি অজানা সমস্যা হয়েছে: $e',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.red.shade700,
-          colorText: Colors.white);
+      Get.snackbar('ত্রুটি', e.message ?? 'লগইন ব্যর্থ');
       return false;
     } finally {
       isLoading.value = false;
     }
   }
 
-  /// Register Manager
   Future<bool> registerManager({
     required String name,
     required String phone,
@@ -96,101 +118,49 @@ class AuthManagerController extends GetxController {
       );
 
       if (credential.user != null) {
+        await _firestoreService.clearAllMessData();
         final manager = ManagerModel(
           id: credential.user!.uid,
           name: name.trim(),
           phone: phone.trim(),
           email: email.trim(),
           joiningDate: DateTime.now(),
-          isActive: true,
         );
-
         await _firestoreService.saveManager(manager);
         syncLoginState(manager);
-        
-        Get.snackbar('সফল', 'ম্যানেজার একাউন্ট তৈরি করা হয়েছে',
-            snackPosition: SnackPosition.BOTTOM,
-            backgroundColor: Colors.green.shade700,
-            colorText: Colors.white);
         return true;
       }
       return false;
-    } on FirebaseAuthException catch (e) {
-      String errorMessage = 'রেজিস্ট্রেশন ব্যর্থ হয়েছে';
-      if (e.code == 'email-already-in-use') errorMessage = 'এই ইমেইলটি ইতিপূর্বেই ব্যবহার করা হয়েছে';
-      else if (e.code == 'weak-password') errorMessage = 'পাসওয়ার্ডটি অন্তত ৬ ডিজিটের হতে হবে';
-      else if (e.code == 'invalid-email') errorMessage = 'ভুল ইমেইল ফরম্যাট';
-
-      Get.snackbar('ত্রুটি', errorMessage,
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.red.shade700,
-          colorText: Colors.white);
-      return false;
     } catch (e) {
-      Get.snackbar('ত্রুটি', 'রেজিস্ট্রেশন সফল হয়নি: $e',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.red.shade700,
-          colorText: Colors.white);
+      Get.snackbar('ত্রুটি', 'রেজিস্ট্রেশন ব্যর্থ');
       return false;
     } finally {
       isLoading.value = false;
     }
   }
 
-  /// Save or Update Manager Profile
-  Future<bool> saveManagerProfile({
-    required String name,
-    required String phone,
-    String email = '',
-    String imageUrl = '',
-    DateTime? joiningDate,
-  }) async {
+  Future<bool> saveManagerProfile({required String name, required String phone, String email = '', DateTime? joiningDate}) async {
     try {
       isLoading.value = true;
-      final existingId = (currentManager.value?.id.isNotEmpty == true)
-          ? currentManager.value!.id
-          : (_auth.currentUser?.uid ?? 'mgr_${DateTime.now().millisecondsSinceEpoch}');
-
+      final existingId = currentManager.value?.id ?? _auth.currentUser?.uid ?? 'mgr_temp';
       final manager = ManagerModel(
         id: existingId,
         name: name.trim(),
         phone: phone.trim(),
-        email: email.trim().isNotEmpty ? email.trim() : (currentManager.value?.email ?? ''),
-        imageUrl: imageUrl.trim(),
-        joiningDate: joiningDate ?? currentManager.value?.joiningDate ?? DateTime.now(),
-        isActive: true,
+        email: email.trim(),
+        joiningDate: joiningDate ?? DateTime.now(),
       );
-
       await _firestoreService.saveManager(manager);
       syncLoginState(manager);
-
-      Get.snackbar('সফল', 'ম্যানেজার তথ্য আপডেট করা হয়েছে', snackPosition: SnackPosition.BOTTOM);
       return true;
-    } catch (e) {
-      Get.snackbar('ত্রুটি', 'তথ্য সেভ করা যায়নি', snackPosition: SnackPosition.BOTTOM);
-      return false;
-    } finally {
-      isLoading.value = false;
-    }
-  }
-
-  Future<void> resetPassword(String email) async {
-    if (email.isEmpty) return;
-    try {
-      await _auth.sendPasswordResetEmail(email: email.trim());
-      Get.snackbar('সফল', 'পাসওয়ার্ড রিসেট লিঙ্ক ইমেইলে পাঠানো হয়েছে', snackPosition: SnackPosition.BOTTOM);
-    } catch (e) {
-      Get.snackbar('ত্রুটি', 'ইমেইল পাওয়া যায়নি', snackPosition: SnackPosition.BOTTOM);
-    }
+    } catch (e) { return false; }
+    finally { isLoading.value = false; }
   }
 
   Future<void> logout() async {
-    try {
-      await _auth.signOut();
-      syncLoginState(null);
-      Get.snackbar('লগআউট', 'সফলভাবে লগআউট করা হয়েছে', snackPosition: SnackPosition.BOTTOM);
-    } catch (e) {
-      debugPrint('Logout error: $e');
-    }
+    await _auth.signOut();
+    currentManager.value = null;
+    isLoggedIn.value = false;
+    Get.offAllNamed('/');
   }
 }

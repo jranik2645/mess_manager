@@ -140,7 +140,9 @@ class _ExtraBillFormDialogState extends State<ExtraBillFormDialog> {
         addedBy: _addedByCtrl.text.trim(),
       );
       final success = await extraBillCtrl.updateExtraBill(updated);
-      if (success) Navigator.pop(context);
+      if (success && mounted) {
+        Navigator.pop(context);
+      }
     } else {
       final success = await extraBillCtrl.createExtraBill(
         title: _titleCtrl.text.trim(),
@@ -154,7 +156,9 @@ class _ExtraBillFormDialogState extends State<ExtraBillFormDialog> {
         description: _descriptionCtrl.text.trim(),
         addedBy: _addedByCtrl.text.trim(),
       );
-      if (success) Navigator.pop(context);
+      if (success && mounted) {
+        Navigator.pop(context);
+      }
     }
   }
 

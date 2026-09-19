@@ -25,12 +25,6 @@ class MemberReportItem {
     required this.balance,
   });
 
-  String get balanceStatus {
-    if (balance > 0.5) return 'জমা (ফেরত পাবে)';
-    if (balance < -0.5) return 'বকেয়া (পরিশোধ করবে)';
-    return 'পরিশোধিত (সমান)';
-  }
-
   Map<String, dynamic> toMap() {
     return {
       'memberId': memberId,
@@ -63,7 +57,7 @@ class MemberReportItem {
 }
 
 class MonthlyReportModel {
-  final String monthKey; // e.g. "2026-09"
+  final String monthKey;
   final String managerName;
   final int totalMembers;
   final double totalDayMeals;
@@ -75,6 +69,11 @@ class MonthlyReportModel {
   final double totalCost;
   final double mealRate;
   final double remainingBalance;
+  
+  // New Summary Fields
+  final double totalDuesFromMembers; // Sum of all negative balances
+  final double totalSurplusOfMembers; // Sum of all positive balances
+
   final List<MemberReportItem> memberReports;
   final DateTime generatedAt;
 
@@ -91,6 +90,8 @@ class MonthlyReportModel {
     required this.totalCost,
     required this.mealRate,
     required this.remainingBalance,
+    this.totalDuesFromMembers = 0.0,
+    this.totalSurplusOfMembers = 0.0,
     required this.memberReports,
     DateTime? generatedAt,
   }) : generatedAt = generatedAt ?? DateTime.now();
@@ -101,7 +102,7 @@ class MonthlyReportModel {
       'managerName': managerName,
       'totalMembers': totalMembers,
       'totalDayMeals': totalDayMeals,
-      'nightMeals': totalNightMeals,
+      'totalNightMeals': totalNightMeals,
       'totalMeals': totalMeals,
       'totalDeposit': totalDeposit,
       'totalRegularCost': totalRegularCost,
@@ -109,19 +110,14 @@ class MonthlyReportModel {
       'totalCost': totalCost,
       'mealRate': mealRate,
       'remainingBalance': remainingBalance,
+      'totalDuesFromMembers': totalDuesFromMembers,
+      'totalSurplusOfMembers': totalSurplusOfMembers,
       'memberReports': memberReports.map((e) => e.toMap()).toList(),
       'generatedAt': Timestamp.fromDate(generatedAt),
     };
   }
 
   factory MonthlyReportModel.fromMap(Map<String, dynamic> map) {
-    DateTime parseDate(dynamic val) {
-      if (val is Timestamp) return val.toDate();
-      if (val is String) return DateTime.tryParse(val) ?? DateTime.now();
-      if (val is int) return DateTime.fromMillisecondsSinceEpoch(val);
-      return DateTime.now();
-    }
-
     final reportsList = (map['memberReports'] as List? ?? [])
         .map((e) => MemberReportItem.fromMap(Map<String, dynamic>.from(e)))
         .toList();
@@ -131,7 +127,7 @@ class MonthlyReportModel {
       managerName: map['managerName'] ?? '',
       totalMembers: (map['totalMembers'] as num?)?.toInt() ?? 0,
       totalDayMeals: (map['totalDayMeals'] as num?)?.toDouble() ?? 0.0,
-      totalNightMeals: (map['nightMeals'] as num?)?.toDouble() ?? 0.0,
+      totalNightMeals: (map['totalNightMeals'] as num?)?.toDouble() ?? 0.0,
       totalMeals: (map['totalMeals'] as num?)?.toDouble() ?? 0.0,
       totalDeposit: (map['totalDeposit'] as num?)?.toDouble() ?? 0.0,
       totalRegularCost: (map['totalRegularCost'] as num?)?.toDouble() ?? 0.0,
@@ -139,9 +135,10 @@ class MonthlyReportModel {
       totalCost: (map['totalCost'] as num?)?.toDouble() ?? 0.0,
       mealRate: (map['mealRate'] as num?)?.toDouble() ?? 0.0,
       remainingBalance: (map['remainingBalance'] as num?)?.toDouble() ?? 0.0,
+      totalDuesFromMembers: (map['totalDuesFromMembers'] as num?)?.toDouble() ?? 0.0,
+      totalSurplusOfMembers: (map['totalSurplusOfMembers'] as num?)?.toDouble() ?? 0.0,
       memberReports: reportsList,
-      generatedAt: parseDate(map['generatedAt']),
+      generatedAt: (map['generatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
 }
-
